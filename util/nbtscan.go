@@ -43,17 +43,18 @@ func query(ip string, laddr *net.UDPAddr, ch chan string, timeout int) {
 	idx := 57
 
 	name_bytes := resp[idx : idx+15]
-	for i := 0; i < 15; i++ {
-		if name_bytes[i] < 31 || name_bytes[i] > 126 {
+	for i, b := range name_bytes {
+		if b < 31 || b > 126 {
 			name_bytes[i] = 0x2E
 		}
 	}
-	name := string(resp[idx : idx+15])
+	name := string(name_bytes)
 	ch <- (ip + " " + name)
 }
 
 func Nbtscan(timeout int) {
-	ch := make(chan string)
+	size := 256
+	ch := make(chan string, size)
 	defer close(ch)
 
 	ipRange := flag.Lookup("r").Value.String()
@@ -66,7 +67,6 @@ func Nbtscan(timeout int) {
 		go query(ip, nil, ch, timeout)
 	}
 
-	size := 256
 	laddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	if err == nil {
 		for i := 0; i < 256; i++ {

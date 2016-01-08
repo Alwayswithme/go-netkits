@@ -9,7 +9,7 @@ import (
 
 func main() {
 	flag.String("c", "", "command, support[ping|portscan|nbtscan]")
-	flag.String("r", "", "address to scan, when use nbtscan")
+	flag.String("r", "", "ip address range to scan, when use nbtscan")
 	toPtr := flag.Int("t", 500, "command timeout")
 
 	flag.Parse()
