@@ -9,35 +9,18 @@ import (
 	"time"
 )
 
-func scanIpAndPort(ip string, port string, ipPortCh chan string, timeout int) {
-	conn, err := net.DialTimeout("tcp", ip+":"+port, time.Duration(timeout)*time.Millisecond)
-	if err != nil {
-		ipPortCh <- ""
-		return
-	}
-	defer conn.Close()
-	ipPortCh <- port
+type ipAndPort struct {
+	ip, port string
 }
 
-func scanIp(ip string, ports []string, ipCh chan string, timeout int) {
-	ipPortCh := make(chan string, len(ports))
-	defer close(ipPortCh)
-	for _, port := range ports {
-		go scanIpAndPort(ip, port, ipPortCh, timeout)
+func scanIpAndPort(addr ipAndPort, timeout int) bool {
+	conn, err := net.DialTimeout("tcp", addr.ip+":"+addr.port, time.Duration(timeout)*time.Millisecond)
+	if err != nil {
+		return false
 	}
-	output := []string{ip}
-	for range ports {
-		result, _ := <-ipPortCh
-		if len(result) > 0 {
-			output = append(output, result)
-		}
-	}
+	defer conn.Close()
+	return true
 
-	if len(output) > 1 {
-		ipCh <- strings.Join(output, " ")
-	} else {
-		ipCh <- ""
-	}
 }
 
 func Portscan(timeout int) {
@@ -57,17 +40,44 @@ func Portscan(timeout int) {
 		}
 	}
 
-	ipCh := make(chan string, len(ips))
-	defer close(ipCh)
-
-	for _, ip := range ips {
-		go scanIp(ip, ports, ipCh, timeout)
+	jobCount := len(ips) * len(ports)
+	jobs := make(chan ipAndPort, jobCount)
+	results := make(chan string, len(ips))
+	defer close(results)
+	for i := 0; i < 500; i++ {
+		go worker(jobs, timeout, results)
 	}
 
-	for range ips {
-		result, _ := <-ipCh
-		if len(result) > 0 {
-			fmt.Printf("%s\n", result)
+	for _, ip := range ips {
+		for _, port := range ports {
+
+			jobs <- ipAndPort{ip, port}
+		}
+	}
+
+	close(jobs)
+
+	m := make(map[string][]string)
+	for i := 0; i < jobCount; i++ {
+		res := <-results
+		if len(res) > 0 {
+			ip := strings.Split(res, ":")
+			m[ip[0]] = append(m[ip[0]], ip[1])
+		}
+
+	}
+
+	for k, v := range m {
+		fmt.Printf("%s %s\n", k, strings.Join(v, " "))
+	}
+}
+
+func worker(jobs chan ipAndPort, timeout int, results chan string) {
+	for addr := range jobs {
+		if scanIpAndPort(addr, timeout) {
+			results <- (addr.ip + ":" + addr.port)
+		} else {
+			results <- ""
 		}
 	}
 }

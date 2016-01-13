@@ -9,36 +9,29 @@ import (
 	"time"
 )
 
-func query(ip string, laddr *net.UDPAddr, ch chan string, timeout int) {
-	addr, err := net.ResolveUDPAddr("udp", ip+":137")
+func query(raddr *net.UDPAddr, laddr *net.UDPAddr, ch chan<- string, timeout int, req []byte) {
+
+	name := dial(raddr, laddr, timeout, req)
+	ch <- name
+	name = dial(raddr, nil, timeout, req)
+	ch <- name
+
+}
+func dial(raddr *net.UDPAddr, laddr *net.UDPAddr, timeout int, req []byte) string {
+	conn, err := net.DialUDP("udp", laddr, raddr)
 	if err != nil {
-		ch <- ""
-		return
-	}
-	conn, err := net.DialUDP("udp", laddr, addr)
-	if err != nil {
-		ch <- ""
-		return
+		return ""
 	}
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
-	req := []byte{0x80, 0xf0, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x20, 0x43, 0x4b, 0x41,
-		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-		0x41, 0x41, 0x41, 0x41, 0x41, 0x00, 0x00, 0x21,
-		0x00, 0x01}
 	_, err = conn.Write(req)
 	if err != nil {
-		ch <- ""
-		return
+		return ""
 	}
 	resp := make([]byte, 1024)
 	_, err = conn.Read(resp)
 	if err != nil {
-		ch <- ""
-		return
+		return ""
 	}
 	idx := 57
 
@@ -49,7 +42,7 @@ func query(ip string, laddr *net.UDPAddr, ch chan string, timeout int) {
 		}
 	}
 	name := string(name_bytes)
-	ch <- (ip + " " + name)
+	return (fmt.Sprintf("%v ", raddr.IP) + name)
 }
 
 func Nbtscan(timeout int) {
@@ -61,25 +54,33 @@ func Nbtscan(timeout int) {
 	lastDotIdx := strings.LastIndex(ipRange, ".")
 	ipPre := ipRange[:lastDotIdx+1]
 
-	var ip string
-	for i := 0; i < 256; i++ {
-		ip = ipPre + strconv.Itoa(i)
-		go query(ip, nil, ch, timeout)
+	laddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		return
 	}
 
-	laddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
-	if err == nil {
-		for i := 0; i < 256; i++ {
-			ip = ipPre + strconv.Itoa(i)
-			go query(ip, laddr, ch, timeout)
-		}
-		size = 512
-	}
+	req := []byte{0x80, 0xf0, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x20, 0x43, 0x4b, 0x41,
+		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+		0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+		0x41, 0x41, 0x41, 0x41, 0x41, 0x00, 0x00, 0x21,
+		0x00, 0x01}
 
 	for i := 0; i < size; i++ {
+		ip := ipPre + strconv.Itoa(i)
+		raddr, err := net.ResolveUDPAddr("udp", ip+":137")
+
+		if err != nil {
+			continue
+		}
+		go query(raddr, laddr, ch, timeout, req)
+	}
+
+	for i := 0; i < size*2; i++ {
 		result, _ := <-ch
 		if len(result) > 0 {
-			fmt.Printf("%s\n", result)
+			fmt.Println(result)
 		}
 	}
 }

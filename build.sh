@@ -15,10 +15,10 @@ esac
 case $2 in
     windows)
         DIR=win
+        SUFFIX=.exe
         ;;
     darwin)
         DIR=macosx
-        SUFFIX=.exe
         ;;
     linux)
         DIR=linux
@@ -27,7 +27,7 @@ esac
 echo "building netkits for $DIR$BIT"
 OUT=bin/$DIR$BIT/netkits$SUFFIX
 GOARCH=$1 GOOS=$2 CGO_ENABLED=0 \
-    go build -o $OUT netkits
+    go build -o $OUT -ldflags "-s -w" netkits
 echo "done [save as $PWD/$OUT]"
 }
 
