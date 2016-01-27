@@ -3,6 +3,7 @@ package util
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -10,27 +11,29 @@ import (
 )
 
 func query(raddr *net.UDPAddr, laddr *net.UDPAddr, ch chan<- string, timeout int, req []byte) {
-
 	name := dial(raddr, laddr, timeout, req)
 	ch <- name
 	name = dial(raddr, nil, timeout, req)
 	ch <- name
-
 }
+
 func dial(raddr *net.UDPAddr, laddr *net.UDPAddr, timeout int, req []byte) string {
 	conn, err := net.DialUDP("udp", laddr, raddr)
 	if err != nil {
+		log.Printf("error occur: %v\n", err)
 		return ""
 	}
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
 	_, err = conn.Write(req)
 	if err != nil {
+		log.Printf("error occur: %v\n", err)
 		return ""
 	}
 	resp := make([]byte, 1024)
 	_, err = conn.Read(resp)
 	if err != nil {
+		log.Printf("error occur: %v\n", err)
 		return ""
 	}
 	idx := 57
@@ -46,6 +49,7 @@ func dial(raddr *net.UDPAddr, laddr *net.UDPAddr, timeout int, req []byte) strin
 }
 
 func Nbtscan(timeout int) {
+	log.SetPrefix("[Nbtscan] ")
 	size := 256
 	ch := make(chan string, size)
 	defer close(ch)

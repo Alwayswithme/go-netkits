@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 )
 
 func Ping(timeout int) {
+	log.SetPrefix("[Ping] ")
 	scanner := bufio.NewScanner(os.Stdin)
 
 	ips := make([]string, 0)
@@ -59,6 +61,6 @@ func runFastPing(ips []string, src string, timeout int) {
 	p.MaxRTT = time.Duration(timeout) * time.Millisecond
 	err := p.Run()
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("error occur: %v\n", err)
 	}
 }

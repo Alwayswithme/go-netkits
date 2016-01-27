@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -16,6 +17,7 @@ type ipAndPort struct {
 func scanIpAndPort(addr ipAndPort, timeout int) bool {
 	conn, err := net.DialTimeout("tcp", addr.ip+":"+addr.port, time.Duration(timeout)*time.Millisecond)
 	if err != nil {
+		log.Printf("error occur: %v\n", err)
 		return false
 	}
 	defer conn.Close()
@@ -24,6 +26,7 @@ func scanIpAndPort(addr ipAndPort, timeout int) bool {
 }
 
 func Portscan(timeout int) {
+	log.SetPrefix("[Portscan] ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	ports := strings.Split(scanner.Text(), " ")
